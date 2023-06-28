@@ -1,0 +1,761 @@
+openapi: 3.0.0
+security:
+  - profile:
+      - profile.name
+      - profile.titles
+      - profile.gender
+      - profile.birthdate
+      - profile.birthnumber
+      - profile.birthplaceNationality
+      - profile.maritalstatus
+      - profile.addresses
+      - profile.idcards
+      - profile.paymentAccounts
+      - profile.email
+      - profile.phonenumber
+      - profile.updatedat
+      - profile.legalstatus
+info:
+  title: Profile Endpoint - Know Your Customer
+  version: 1.7.0
+  description: |
+    The Know Your Customer Endpoint is an OAuth 2.0 Protected Resource that returns 
+    identification data of the currently authenticated End-User.
+
+    To obtain the required data, RP will use an Access Token obtained from the 
+    authentication flow defined as OpenID Connect Authentication. These data are 
+    normally represented by a JSON object that contains a collection of name and value 
+    pairs for these data.
+
+
+    **Verified Data Representation extension for /profile resource**
+
+
+    This extension to OpenID Connect wants to ensure that IDPs cannot mix up verified 
+    and unverified Claims and incidentally process unverified Claims as verified Claims.
+
+    The representation proposed therefore provides the IDP with the verified Claims 
+    within a container element verified_claims. This container is composed of the verification 
+    evidence related to a certain verification process and the corresponding Claims 
+    about the End-User which were verified in this process.
+
+    Verification elements contains the information about the process conducted to 
+    verify a person's identity and bind the respective person data to a user account.
+
+
+    **Preliminary arrangements for the use of described resources, list of source materials:**
+
+      * [OpenID.Core](https://openid.net/specs/openid-connect-core-1_0.html) OpenID Connect Core 1.0
+
+      * Signed and encrypted JWTs are used for any /profile calls and responses
+
+      * In RP's IDP relationship the Profile information MUST be returned as the signed 
+      and encrypted JSON object as required by definition during RP Client Registration to IDP.
+
+      * The sub (subject) element MUST always be returned in the Profile Response.
+
+      * The sub element in the Profile Response MUST be verified to exactly match the sub Claim 
+      in the ID Token; if they do not match, the Profile Response values MUST NOT be used.
+
+      * The Profile Endpoint MUST return a content-type header to indicate which format is 
+      being returned and if the response body is a text JSON object; the response body SHOULD 
+      be encoded using UTF-8.
+
+      * If the Profile Response is signed and/or encrypted, then the elements are returned in a 
+      JWT and the content-type MUST be application/jwt. The response MAY be encrypted without 
+      also being signed. If both signing and encryption are requested, the response MUST be 
+      signed then encrypted, with the result being a Nested JWT.
+
+    * [OpenID.IdentityAssurance](https://openid.net/specs/openid-connect-4-identity-assurance-1_0.html) 
+    OpenID Connect for Identity Assurance 1.0
+
+      * This arrangement introduces the possibility for the bank to separate the verified
+      Claims within a container element `verified_claims`. This container is composed of the 
+      verification evidence related to a certain verification process and the corresponding 
+      Claims about the End-User which were verified in this process.
+
+      * Implementations MUST ignore any sub-element not defined in this specification or 
+      extensions of this specification.
+
+      * In the case of this definition verification element MUST consist of the following elements:
+
+        * `trust_framework`: REQUIRED. String determining the trust framework governing the 
+        identity verification process. For example, the value of ``cz_aml`` for verification 
+        according to the Czech AML law.
+
+        * `time`: OPTIONAL. Time stamp in ISO 8601:2004 [ISO8601-2004] YYYY-MM-DDThh:mm:ss±hh 
+        format representing the date and time when identity verification took place.
+
+        * `verification_process`: REQUIRED. In the case of this specification, the verification 
+        process shall include the tax number of the relevant bank where the initial physical 
+        verification of the client took place. This is the bank's tax number, which is kept in 
+        the list of regulated and registered entities of the CNB JERRS.
+
+        * `claims`: The claims element contains the claims about the End-User that were 
+        verified during the defined verification process.
+
+      * Verified Claims can be specified using the appropriate set of scopes and 
+      authorized by the End-User as defined in the Section 5.4. of the OpenID Connect 
+      specification [OpenID](https://openid.net/specs/openid-connect-core-1_0.html#ScopeClaims)
+
+servers:
+  - url: /
+paths:
+  /profile:
+    get:
+      summary: Returns an extended (down to AML) set of authenticated End-User information.
+      description: |
+
+      security:
+        - Bearer: []
+      tags:
+        - profile
+      responses:
+        '200':
+          description: 'OK'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/profile'
+              examples:
+                profile:
+                  $ref: '#/components/examples/profile'
+            application/jwt:
+              schema:
+                type: string
+                format: binary
+              example: ewoidHlwIjoiVXNlcmluZm8iLAoiYWxnIjoiSFMyNTYiCn0K.ewoic3ViIjogIjIzZjFhYzAwLTVkNTQtNDE2OS1hMjg4LTc5NGFlMmVhZDBjNCIsCiJuYW1lIjogIkphbiBOb3bDoWsiLAoiZ2l2ZW5fbmFtZSI6ICJKYW4iLAogIAkiZmFtaWx5X25hbWUiOiAiTm92w6FrIiwKICAJIm1pZGRsZV9uYW1lIjogIiIsCiAgCSJuaWNrbmFtZSI6ICJab3JybyIsCiAgCSJwcmVmZXJyZWRfdXNlcm5hbWUiOiAiSmFuIiwKIAkiZW1haWwiOiAiSi5ub3Zha0BlbWFpbC5jb20iLAogIAkiZW1haWxfdmVyaWZpZWQiOiB0cnVlLAogIAkiZ2VuZGVyIjogIm1hbGUiLAogIAkiYmlydGhkYXRlIjogIjE5NzAtMDgtMDEiLAogIAkiem9uZWluZm8iOiAiRXVyb3BlL1ByYWd1ZSIsCiAgCSJsb2NhbGUiOiAiY3NfQ1oiLAogIAkicGhvbmVfbnVtYmVyIjogIis0MjAxMjM0NTY3ODkiLAogIAkicGhvbmVfbnVtYmVyX3ZlcmlmaWVkIjogZmFsc2UsCiAidXBkYXRlZF9hdCI6IDE1NjgxODg0MzMwMDAKfQo=.cDEuITlDHi14RUEGG3cxEWoXFzZWIG46JmMWZu+/vXImNBh0QUXlgq07xbYWYzF2biUl77+9dXZ2XAEjbFg1fgEDKRXYrgUuCm8kWzNKHgQKIARNPhIBMHlbMtS9O0FmZRl5I31w07FdPC4ndUVkRBd6Dj4nWmEKe9aHHjFgAxFIUTI8bgFbPfK6lbcXLFZsWVZpKBw0MmlUPQFw
+
+        '401':
+          description: 'Unauthorized request'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/unauthorized'
+              example:
+                value:
+                  error: 'UNAUTHORIZED'
+                  error_description: 'Invalid/missing access token'
+        '403':
+          description: 'Request was forbidden'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/forbidden'
+              example:
+                value:
+                  error: 'FORBIDDEN'
+                  error_description: 'Authentication with an expired access token or bearer access token having insufficient privileges'
+components:
+  schemas:
+    sub:
+      type: string
+      description: Identifier for the End-User at the Issuer.
+      example: d39e8a84-1762-48a9-903f-e92ac62e9b0e
+    txn:
+      type: string
+      description: |
+        The `txn` Claim is used to build audit trails and MUST contain the following basic transaction information:
+
+          - unique transaction-id
+          - list of used scopes
+
+        The required `txn` format is a string containing a unique transaction id in the UUID format, which is separated by a colon from the individual scopes used in the call, which are also separated by a colon.
+
+        Format:
+          `uniquetransactionid:usedscope:usedscope:usedscope`
+
+      example: 6941683f-c6ee-410c-add0-d52d63091069:openid:profile.name:profile.address
+    title_prefix:
+      type: string
+      description: User's title prefix
+      example: Ing.
+    title_suffix:
+      type: string
+      description: User`s title suffix
+      example: Jr.
+    given_name:
+      type: string
+      description: Given name(s) or first name(s) of the End-User. Note that in
+        some cultures, people can have multiple given names; all can
+        be present, with the names being separated by space
+        characters.
+      example: 'Jan'
+    family_name:
+      type: string
+      description: Surname(s) or last name(s) of the End-User. Note that in some
+        cultures, people can have multiple family names or no family
+        name; all can be present, with the names being separated by
+        space characters.
+      example: 'Novák'
+    middle_name:
+      type: string
+      description: >
+        Middle name(s) of the End-User. Note that in some cultures,
+        people can have multiple middle names; all can be present,
+        with the names being separated by space characters. Also note
+        that in some cultures, middle names are not used.
+      example: ''
+    gender:
+      type: string
+      description: >
+        End-User's gender. Values defined by this specification are
+        female and male. Other values MAY be used when neither of the
+        defined values are applicable.
+      enum:
+        - male
+        - female
+        - other
+    birthdate:
+      type: string
+      description: End-User's birthday, represented as an ISO 8601:2004
+        [ISO8601‑2004] YYYY-MM-DD format. The year MAY be 0000,
+        indicating that it is omitted. To represent only the year,
+        YYYY format is allowed. Note that depending on the underlying
+        platform's date related function, providing just year can
+        result in varying month and day, so the implementers need to
+        take this factor into account to correctly process the dates.
+      example: '1970-01-11'
+    birthnumber:
+      type: string
+      description: User's birth number. Birth number is required if nationality
+        is Czech ("CZ").
+      example: '1101700140'
+    birthplace:
+      type: string
+      description: User's birth place.
+      example: 'Praha 4'
+    birthcountry:
+      type: string
+      description: User's birth country in ISO 3166-1 format, subtype ALPHA-2. This means two letters in uppercase.
+      example: 'CZ'
+
+    nationalities:
+      type: array
+      title: nationalities
+      description:
+        All user's nationalities, ISO 3166-1 format, subtype ALPHA-2. This
+        means two letters in uppercase.
+      items:
+        type: string
+      example: ['CZ', 'AT', 'SK']
+
+    maritalstatus:
+      type: string
+      description: >-
+        Marital status. One of:
+          * `COHABITATION` - cohabitation status.
+          * `MARRIED` - married status
+          * `DIVORCED` - divorced status
+          * `REGISTERED_PARTNERSHIP` - registered partnership status
+          * `REGISTERED_PARTNERSHIP_CANCELED` - registered partnership canceled status
+          * `WIDOWED` - widowed status
+          * `SINGLE` - single status
+          * `UNKNOWN` - unknown status
+      enum:
+        - COHABITATION
+        - MARRIED
+        - DIVORCED
+        - REGISTERED_PARTNERSHIP
+        - REGISTERED_PARTNERSHIP_CANCELED
+        - WIDOWED
+        - SINGLE
+        - UNKNOWN
+    addresses:
+      type: array
+      description: User’s addresses
+      items:
+        $ref: '#/components/schemas/address'
+    idcards:
+      type: array
+      title: idcards
+      description: User's id cards
+      items:
+        $ref: '#/components/schemas/idcard'
+    email:
+      type: string
+      description:
+        End-User's preferred e-mail address. Its value MUST conform to
+        the RFC 5322 [RFC5322] addr-spec syntax. The API consumer MUST
+        NOT rely upon this value being unique.
+      example: 'J.novak@email.com'
+    phone_number:
+      type: string
+      description: End-User's preferred telephone number. E.164 [E.164] is
+        RECOMMENDED as the format of this Claim, for example, +1 (425)
+        555-1212 or +56 (2) 687 2400. If the phone number contains an
+        extension, it is RECOMMENDED that the extension be represented
+        using the RFC 3966 [RFC3966] extension syntax, for example, +1
+        (604) 555-1234;ext=5678.
+      example: '+420123456789'
+    pep:
+      type: boolean
+      description: |
+        Flag that the authenticated user is politically exposed person (PEP).
+        In financial regulation, a politically exposed person is one who has been entrusted 
+        with a prominent public function. A PEP generally presents a higher risk for potential 
+        involvement in bribery and corruption by virtue of their position and the influence that 
+        they may hold.
+      example: false
+    limited_legal_capacity:
+      type: boolean
+      description: An indication of whether this is a person with limited legal capacity.
+      example: false
+    updated_at:
+      type: string
+      description:
+        Time the End-User's information was last updated. Its value is
+        a JSON number representing the number of seconds from
+        1970-01-01T0:0:0Z as measured in UTC until the date/time.
+      example: 1568188433000
+      
+    age:
+      type: number
+      description: Current age of the client given in years.
+      example: 28
+      
+    date_of_death:
+      type: string
+      description: |
+        Date of death of the client. Practically still null. Only in the case of updating data (not yet part of the 
+        standard definition) is it possible to receive a specific date.
+      example: null
+    
+    majority:
+      type: boolean
+      description: |
+        An person is over the threshold of adulthood as recognized or declared in law.
+      example: true
+      
+
+    verification:
+      description: |
+        This element contains the information about the process conducted to verify a person's identity and 
+        bind the respective person data to a user account.
+      type: object
+      required:
+        - trust_framework
+        - verification_process
+      properties:
+        trust_framework:
+          type: string
+          title: trust_framework
+          enum:
+            - cz_aml
+          description: 'String determining the trust framework governing the identity verification process and the 
+          identity assurance level of the OP.'
+        time:
+          type: string
+          format: 'date-time'
+          title: time
+          description: 'Time stamp in ISO 8601:2004 [ISO8601-2004] YYYY-MM-DDThh:mm:ss±hh format representing the date 
+          and time when identity verification took place. Presence of this element might be required for certain trust 
+          frameworks.'
+        verification_process:
+          type: string
+          title: verification_process
+          description: |
+            Reference to the identity verification process as performed by the identity providers. Used for 
+            backtracing in case of disputes or audits. Presence of this element might be required for certain trust 
+            frameworks. In the case of RP, the value of this element requires the tax number of the bank (financial 
+            institution) that carried out the identification process.
+
+            This is the bank's tax number, which is kept in the list of regulated and registered entities of the CNB JERRS.
+          example: '45244782'
+
+    claims:
+      description: |
+        Object that is the container for the verified Claims about the End-User.
+
+        This is an element that will eventually be used by IDP in the future when the data will be verified, for example,
+        against state basic registers.
+      type: object
+      anyOf:
+        - $ref: '#/components/schemas/given_name'
+        - $ref: '#/components/schemas/family_name'
+        - $ref: '#/components/schemas/middle_name'
+        - $ref: '#/components/schemas/title_prefix'
+        - $ref: '#/components/schemas/title_suffix'
+        - $ref: '#/components/schemas/gender'
+        - $ref: '#/components/schemas/birthdate'
+        - $ref: '#/components/schemas/birthnumber'
+        - $ref: '#/components/schemas/birthplace'
+        - $ref: '#/components/schemas/birthcountry'
+        - $ref: '#/components/schemas/maritalstatus'
+        - $ref: '#/components/schemas/addresses'
+        - $ref: '#/components/schemas/idcards'
+      example:
+        given_name: Jan
+        family_name: Novák
+        title_prefix: Ing.
+        gender: male
+        birthdate: '1970-08-01'
+
+    verified_claims:
+      description: 'By this element RP wants to ensure that cannot mix up verified and unverified Claims and incidentally process unverified Claims as verified Claims.'
+      type: object
+      properties:
+        verification:
+          $ref: '#/components/schemas/verification'
+        claims:
+          $ref: '#/components/schemas/claims'
+      required:
+        - verification
+
+    profile:
+      description: Provide detailed information abou user
+      properties:
+        sub:
+          $ref: '#/components/schemas/sub'
+        txn:
+          $ref: '#/components/schemas/txn'
+        verified_claims:
+          $ref: '#/components/schemas/verified_claims'
+        title_prefix:
+          $ref: '#/components/schemas/title_prefix'
+        title_suffix:
+          $ref: '#/components/schemas/title_suffix'
+        given_name:
+          $ref: '#/components/schemas/given_name'
+        family_name:
+          $ref: '#/components/schemas/family_name'
+        middle_name:
+          $ref: '#/components/schemas/middle_name'
+        gender:
+          $ref: '#/components/schemas/gender'
+        birthdate:
+          $ref: '#/components/schemas/birthdate'
+        birthnumber:
+          $ref: '#/components/schemas/birthnumber'
+        age:
+          $ref: '#/components/schemas/age'
+        majority:
+          $ref: '#/components/schemas/majority'
+        date_of_death:
+          $ref: '#/components/schemas/date_of_death'
+        birthplace:
+          $ref: '#/components/schemas/birthplace'
+        birthcountry:
+          $ref: '#/components/schemas/birthcountry'
+        nationalities:
+          $ref: '#/components/schemas/nationalities'
+        maritalstatus:
+          $ref: '#/components/schemas/maritalstatus'
+        addresses:
+          $ref: '#/components/schemas/addresses'
+        idcards:
+          $ref: '#/components/schemas/idcards'
+        email:
+          $ref: '#/components/schemas/email'
+        phone_number:
+          $ref: '#/components/schemas/phone_number'
+        pep:
+          $ref: '#/components/schemas/pep'
+        limited_legal_capacity:
+          $ref: '#/components/schemas/limited_legal_capacity'
+        paymentAccounts:
+          $ref: '#/components/schemas/paymentAccounts'
+        paymentAccountsDetails:
+          $ref: '#/components/schemas/paymentAccountsDetails'
+        updated_at:
+          $ref: '#/components/schemas/updated_at'
+      required:
+        - sub
+        - txn
+        - verified_claims
+        - updated_at
+    unauthorized:
+      description: Unauthorized
+      properties:
+        error:
+          type: string
+          title: error
+        error_description:
+          type: string
+          title: message
+      required:
+        - error
+    forbidden:
+      description:
+        Authentication with an expired access token or  bearer access token
+        having insufficient privileges
+      properties:
+        error:
+          type: string
+          title: error
+        error_description:
+          type: string
+          title: message
+      required:
+        - error
+    address:
+      type: object
+      title: address
+      description: User's address
+      properties:
+        type:
+          type: string
+          title: type
+          description: |-
+            Type of address element as an ENUM:
+              * `PERMANENT_RESIDENCE` - permanent residence address
+              * `SECONDARY_RESIDENCE` - secondary residence address
+              * `UNKNOWN` - unknown address type
+          enum:
+            - PERMANENT_RESIDENCE
+            - SECONDARY_RESIDENCE
+            - UNKNOWN
+        street:
+          type: string
+          title: street
+          description: Street
+        buildingapartment:
+          type: string
+          title: buildingapartment
+          description: Address land registry number.
+        streetnumber:
+          type: string
+          title: streetnumber
+          description: Additional address house number.
+        evidencenumber:
+          type: string
+          title: evidencenumber
+          description: Optional parameter. House registration number (eg for house constructions).
+        city:
+          type: string
+          title: city
+          description: City name.
+        cityarea:
+          type: string
+          title: cityarea
+          description: Optional parametr. City area name. 
+        zipcode:
+          type: string
+          title: zipcode
+          description: Zip code of the address.
+        country:
+          type: string
+          title: country
+          description:
+            Country Code, ISO 3166-1 format, subtype ALPHA-2. This means two
+            letters in uppercase.
+        ruian_reference:
+          type: string
+          title: ruian_reference
+          description: |
+            Address reference to the register of territorial identification, addresses and real estate (RUIAN)
+          example: '1537GH96'
+      required:
+        - type
+        - street
+        - buildingapartment
+        - streetnumber
+        - city
+        - zipcode
+        - country
+    idcard:
+      type: object
+      title: idcard
+      description: User's id card
+      properties:
+        type:
+          type: string
+          title: type
+          description: >-
+            Id card type code:
+              * `ID` - Identity card.
+              * `P ` - Passport of the Czech Republic resident.
+              * `DL` - Driving license
+              * `IR` - Residence permit
+              * `VS` - Visa permit label
+              * `PS` - Residential label
+              * `IX` - Book with residence permit
+              * `IE` - Form with temporary residence
+              * `OP` - Identity card – without machine readable zone
+              * `CA` - Passport of the Czech Republic resident – without machine readable zone
+              * `UNKNOWN` - Unknown id card type
+          enum:
+            - ID
+            - P 
+            - DL
+            - IR
+            - VS
+            - PS
+            - IX
+            - IE
+            - UNKNOWN
+        description:
+          type: string
+          title: description
+          description: Localized id card type description.
+        country:
+          type: string
+          title: country
+          description: Country for which is id card valid.
+        number:
+          type: string
+          title: number
+          description: Number of id card.
+        valid_to:
+          type: string
+          title: valid_to
+          description: Id card validity.
+        issuer:
+          type: string
+          title: issuer
+          description: Office that issued id card.
+          example: 'Úřad městské části Praha 4'
+        issue_date:
+          type: string
+          title: issue_date
+          description: Date of id card issue.
+          example: '2020-01-28'
+            
+      required:
+        - type
+        - country
+        - number
+        - valid_to
+        - issuer
+        - issue_date
+    paymentAccounts:
+      type: array
+      title: paymentAccounts
+      description: User's payment account numbers in CZ IBAN format.
+      items:
+        type: string
+        title: IBAN
+        description: User's payment account number in CZ IBAN format.
+    paymentAccountsDetails:
+      type: array
+      title: paymentAccountsDetails
+      description: Optional parameter. Collection of user payment accounts in IBAN format with the specified currency.
+      items:
+        $ref: '#/components/schemas/paymentAccount'
+        
+    paymentAccount:
+      type: object
+      description: User's payment account number in CZ IBAN format and currency.
+      properties:
+        iban:
+          type: string
+          title: iban
+          description: User's payment account number in CZ IBAN format.
+          example: CZ0708000000001019382023
+        currency:
+          description: The currency of that payment account
+          type: string
+          title: currency
+          example: CZK
+          
+  securitySchemes:
+    profile:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://
+          tokenUrl: https://
+          scopes:
+            profile.name: given_name, family_name, middle_name
+            profile.titles: title_prefix and title_suffix
+            profile.gender: gender
+            profile.birthdate: birthdate, age and date_of_death
+            profile.birthnumber: birthnumber
+            profile.birthplaceNationality: birthplace, birthcountry and nationalities
+            profile.maritalstatus: maritalstatus
+            profile.addresses:
+              addresses.type, addresses.street, addresses.buildingapartment,
+              addresses.streetnumber, address.evidencenumber, addresses.city, address.cityarea, addresses.zipcode, addresses.country and ruian_reference
+            profile.idcards: idcards.type, idcards.description, idcards.country,
+              idcards.number, idcards.valid_to, issuer and issue_date
+            profile.paymentAccounts: paymentAccounts, paymentAccountsDetails
+            profile.email: email
+            profile.phonenumber: phone_number
+            profile.updatedat: updated_at
+            profile.legalstatus: majority, pep, limited_legal_capacity
+    Bearer:
+      description: |
+        For accessing the API a valid JWT token must be passed in all the queries in
+        the 'Authorization' header.
+
+        The following syntax must be used in the 'Authorization' header :
+
+        `Bearer: xxxxxx.yyyyyyy.zzzzzz`
+
+      type: apiKey
+      name: Authorization
+      in: header
+
+  examples:
+    profile:
+      value:
+        sub: '23f1ac00-5d54-4169-a288-794ae2ead0c4'
+        txn: '6941683f-c6ee-410c-add0-d52d63091069:openid:profile.name:profile.addresses'
+        verified_claims:
+          verification:
+            trust_framework: cz_aml
+            time: 2020-02-09T18:43:26.000Z
+            verification_process: '45244782'
+          claims:
+            given_name: Jan
+            family_name: Novák
+            gender: 'male'
+            birthdate: '1970-08-01'
+            addresses:
+              - type: 'PERMANENT_RESIDENCE'
+                street: 'Olbrachtova'
+                buildingapartment: '1929'
+                streetnumber: '62'
+                city: 'Praha'
+                cityarea: 'Krč'
+                zipcode: '14000'
+                country: 'CZ'
+            idcards:
+              - type: 'ID'
+                description: 'Občanský průkaz'
+                country: 'CZ'
+                number: '123456789'
+                valid_to: '2023-10-11'
+                issuer: 'Úřad městské části Praha 4'
+                issue_date: '2020-01-28'
+        given_name: 'Jan'
+        family_name: 'Novák'
+        middle_name: ''
+        gender: 'male'
+        birthdate: '1970-08-01'
+        birthnumber: '7008010147'
+        age: 50
+        majority: true
+        date_of_death: null
+        birthplace: 'Praha 4'
+        birthcountry: 'CZ'
+        nationalities: ['CZ', 'AT', 'SK']
+        maritalstatus: 'MARRIED'
+        email: 'J.novak@email.com'
+        phone_number: '+420123456789'
+        pep: false
+        limited_legal_capacity: false
+        addresses:
+          - type: 'PERMANENT_RESIDENCE'
+            street: 'Olbrachtova'
+            buildingapartment: '1929'
+            streetnumber: '62'
+            city: 'Praha'
+            cityarea: 'Krč'
+            zipcode: '14000'
+            country: 'CZ'
+            ruian_reference: '186GF76'
+        idcards:
+          - type: 'ID'
+            description: 'Občanský průkaz'
+            country: 'CZ'
+            number: '123456789'
+            valid_to: '2023-10-11'
+            issuer: 'Úřad městské části Praha 4'
+            issue_date: '2020-01-28'
+        paymentAccounts:
+          - CZ0708000000001019382023
+        paymentAccountsDetails:
+          - iban: CZ0708000000001019382023
+            currency: CZK
+        updated_at: 1568188433000
